@@ -1,6 +1,6 @@
 // //////////////////////////////////////////////////////////
 // mygrep.c
-// Copyright (c) 2014 Stephan Brumme. All rights reserved.
+// Copyright (c) 2014,2019 Stephan Brumme. All rights reserved.
 // see http://create.stephan-brumme.com/disclaimer.html
 //
 
@@ -78,9 +78,9 @@ int main(int argc, char* argv[])
       algorithm = UseBoyerMooreHorspool;
     else if (strcmp(argv[3], "--bitap")  == 0)
       algorithm = UseBitap;
-    else if (strcmp(argv[3], "--rabinkarp")  == 0)
+    else if (strcmp(argv[3], "--rabinkarp") == 0)
       algorithm = UseRabinKarp;
-    else if (strcmp(argv[3], "-c")  == 0)
+    else if (strcmp(argv[3], "-c")       == 0)
       display = ShowCountOnly;
     else
     {
@@ -93,7 +93,7 @@ int main(int argc, char* argv[])
   FILE* file = fopen(argv[2], "rb");
   if (!file)
   {
-    printf("Failed to open file");
+    printf("Failed to open file\n");
     return -3;
   }
 
@@ -103,7 +103,7 @@ int main(int argc, char* argv[])
   fseek(file, 0, SEEK_SET);
   if (filesize == 0)
   {
-    printf("Empty file");
+    printf("Empty file\n");
     return -4;
   }
 
@@ -111,7 +111,7 @@ int main(int argc, char* argv[])
   char* data = (char*) malloc(filesize + 2);
   if (!data)
   {
-    printf("Out of memory");
+    printf("Out of memory\n");
     return -5;
   }
   fread(data, filesize, 1, file);
@@ -131,8 +131,18 @@ int main(int argc, char* argv[])
   // fence
   const char*  haystackEnd    = haystack + haystackLength;
 
+  // "native" and "Boyer-Moore-Horspool" are in almost all cases the best choice
+  if (algorithm == UseBest)
+  {
+    // when needle is longer than about 16 bytes, Boyer-Moore-Horspool is faster
+    if (needleLength <= 16)
+      algorithm = UseNative;
+    else
+      algorithm = UseBoyerMooreHorspool;
+  }
+
   // search until done ...
-  size_t numHits = 0;
+  unsigned int numHits = 0;
   const char* current = haystack;
   for (;;)
   {
@@ -142,19 +152,11 @@ int main(int argc, char* argv[])
 
     switch (algorithm)
     {
-    case UseBest:
-      // when needle is longer than about 16 bytes, Boyer-Moore-Horspool is faster
-      if (needleLength <= 16)
-        current = searchNative            (current, bytesLeft, needle, needleLength);
-      else
-        current = searchBoyerMooreHorspool(current, bytesLeft, needle, needleLength);
-      break;
-
     case UseMemMem:
       // correctly handled zeros, unfortunately much slower
       {
         const char* before = current;
-        current = (const char*)memmem       (current, bytesLeft, needle, needleLength);
+        current = (const char*)memmem   (current, bytesLeft, needle, needleLength);
         // workaround for strange GCC behavior, else I get a memory access violation
         if (current)
         {
@@ -166,33 +168,37 @@ int main(int argc, char* argv[])
     case UseStrStr:
       // much faster but has problems when bytes in haystack are zero,
       // requires both to be properly zero-terminated
-      current = strstr                    (current,            needle);
+      current = strstr                  (current,            needle);
       break;
 
     case UseSimple:
       // brute-force
-      current = searchSimple              (current, bytesLeft, needle, needleLength);
+      current = searchSimple            (current, bytesLeft, needle, needleLength);
       break;
     case UseNative:
       // brute-force for short needles, based on compiler-optimized functions
-      current = searchNative              (current, bytesLeft, needle, needleLength);
+      current = searchNative            (current, bytesLeft, needle, needleLength);
       break;
     case UseKnuthMorrisPratt:
       // Knuth-Morris-Pratt
-      current = searchKnuthMorrisPratt    (current, bytesLeft, needle, needleLength);
+      current = searchKnuthMorrisPratt  (current, bytesLeft, needle, needleLength);
       break;
     case UseBoyerMooreHorspool:
       // Boyer-Moore-Horspool
-      current = searchBoyerMooreHorspool  (current, bytesLeft, needle, needleLength);
+      current = searchBoyerMooreHorspool(current, bytesLeft, needle, needleLength);
       break;
     case UseBitap:
       // Bitap / Baeza-Yates-Gonnet algorithm
-      current = searchBitap               (current, bytesLeft, needle, needleLength);
+      current = searchBitap             (current, bytesLeft, needle, needleLength);
       break;
     case UseRabinKarp:
       // Rabin-Karp algorithm
-      current = searchRabinKarp           (current, bytesLeft, needle, needleLength);
+      current = searchRabinKarp         (current, bytesLeft, needle, needleLength);
       break;
+
+    default:
+      printf("Unknown search algorithm\n");
+      return -6;
     }
 
     // needle not found in the remaining haystack

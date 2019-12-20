@@ -1,6 +1,6 @@
 // //////////////////////////////////////////////////////////
 // search.c
-// Copyright (c) 2014 Stephan Brumme. All rights reserved.
+// Copyright (c) 2014,2019 Stephan Brumme. All rights reserved.
 // see http://create.stephan-brumme.com/disclaimer.html
 //
 
@@ -533,39 +533,14 @@ const char* searchNative(const char* haystack, size_t haystackLength,
   // points beyond last considered byte
   const char* haystackEnd = haystack + haystackLength;
 
-  // optimized code for just two characters
-  if (needleLength == 2)
-  {
-    while ((haystack = (const char*)memchr(haystack, needle[0], haystackLength)) != NULL)
-    {
-      // match second byte/character
-      if (haystack[1] == needle[1])
-        return haystack;
-
-      // compute number of remaining bytes
-      haystackLength -= haystackEnd - haystack;
-      if (haystackLength == 0)
-        return NULL;
-
-      // keep going
-      haystack++;
-      haystackLength--;
-    }
-
-    // needle not found in haystack
-    return NULL;
-  }
-
   // look for first byte
   while ((haystack = (const char*)memchr(haystack, *needle, haystackLength)) != NULL)
   {
     // does last byte match, too ?
     if (haystack[needleLength - 1] == needle[needleLength - 1])
-      // okay, perform full comparison, skip first and last byte
-      if (memcmp(haystack + 1, needle + 1, needleLength - 2) == 0)
+      // okay, perform full comparison, skip first and last byte (if just 2 bytes => already finished)
+      if (needleLength == 2 || memcmp(haystack + 1, needle + 1, needleLength - 2) == 0)
         return haystack;
-
-    // note: the following lines are identical to the "two-character case" from above
 
     // compute number of remaining bytes
     haystackLength = haystackEnd - haystack;
